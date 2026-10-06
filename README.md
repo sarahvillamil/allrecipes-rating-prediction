@@ -41,7 +41,7 @@ We evaluated a variety of regression models, including:
 - SVM (Radial)
 - SVM (Polynomial)
 - Ensemble Models
-- 
+
 Model training utilized:
 - 80/20 Train-Test Split
 - 5-Fold Cross Validation
@@ -60,7 +60,7 @@ Our best-performing model was an ensemble combining:
 |----------|----------|
 | Validation RMSE | 0.390 |
 | Test RMSE | 0.395 |
- 
+---
 ## Key Findings
 - Ensemble methods outperformed individual models.
 - Feature engineering from recipe ingredients provided useful predictive information.
