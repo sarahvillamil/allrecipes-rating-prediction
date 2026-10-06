@@ -1,0 +1,94 @@
+---
+title: "What Makes a Recipe Great? Predicting Average Ratings on AllRecipes.com"
+subtitle: |
+  | Executive Summary
+  | Data Science 3 with R (STAT 301-3)
+author:
+  - name: Sarah Villamil
+  - name: Lillian Valk
+  - name: Avryl Carmona
+  - name: Cameron Lara
+date: today
+
+format:
+  html:
+    theme: cosmo
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    embed-resources: true
+    code-fold: false
+    link-external-newwindow: true
+
+execute:
+  warning: false
+
+from: markdown+emoji
+---
+
+::: {.callout-tip icon=false}
+
+## Github Repo Link
+
+[Github Repo Link](https://github.com/stat301-3-2026-spring/final-project-3-slac-3.git)
+
+:::
+
+```{r}
+#| echo: false
+library(here)
+library(tidyverse)
+library(tidymodels)
+
+load(here("plots/attempt2_results_table.rda"))
+load(here("plots/attempt2_results_plot.rda"))
+load(here("plots/attempt1_results_table.rda"))
+load(here("plots/attempt1_results_plot.rda"))
+load(here("plots/final_tbls_graphs.rda"))
+```
+
+## Purpose
+
+This project aimed to predict the average user rating of recipes posted on [AllRecipes.com](https://www.allrecipes.com/) using features extracted from the recipes themselves. Understanding what drives high ratings has practical value for recipe developers and content platforms alike. A dataset of 14,426 recipes was used, with predictors including cooking time, ingredients, and publication date.
+
+## Model Results
+
+We initially tried 11 different models, each with a simpler processing and a more complex processing, with 21 total models ran. After this initial step, we isolated the four best performing models to run them again with a more refined approach. Those four best models were an ensemble model, a random forest model, a boosted tree model, and a MARS model, all with the simpler processing, and their results are below in @tbl-refined-results. From this table, our best performing model was the ensemble model of MARS and BT with its fast runtime and low RMSE.
+
+```{r}
+#| label: tbl-refined-results
+#| echo: false
+#| tbl-cap: "Refined model results ranked by RMSE with computation time."
+
+attempt2_results_table
+```
+
+## Final Model Results
+
+The results of fitting the ensemble model to the training set and predicting it with the test set are shown below in @tbl-final-rmse. We can see the RMSE increased, so we may have overfit the model to the training set during the tuning phase. When applied in the context of our dataset, this means that our model on average would predict 0.395 off from the actual average recipe rating.
+
+```{r}
+#| label: tbl-final-rmse
+#| echo: false
+#| tbl-cap: "Final RMSE"
+
+final_rmse
+``` 
+
+The results are also shown visually in @fig-final-graph. Here, we can see that the model did better with predicting higher values between 4 and 5, but not values lower than that. Our model was therefore overtrained on the higher values, and underperformed with outliers.
+
+```{r}
+#| label: fig-final-graph
+#| echo: false
+#| fig-cap: "Predicted vs. Actual Average Recipe Ratings"
+
+final_graph
+``` 
+
+## Conclusions
+
+After two attempts to predict the average rating, our models, unfortunately, did not improve much from initial attempts. We still fell within an RMSE of approximately 0.39. Even with model refinement, the simpler recipes performed better, so the increased feature engineering we chose was not necessary for building a solid model. However, this does not mean that other feature engineering could have been more helpful. Future explorations could try two-step model approaches (separating outliers and all other values for two separate models), or a classification approach by binning different whole number ratings. More work can still be done to lower the RMSE past approximately 0.39.
+
+## Comment on Generative AI Use
+
+Claude (Anthropic) was used to assist with code writing, debugging, and report structuring throughout this project.^[Anthropic. (2026). *Claude* (claude-sonnet-4-6) [Large language model]. Available at: <https://claude.ai>.] All analytical decisions — including model selection, feature engineering strategy, and interpretation of results — were made by the author. Claude served as a coding assistant; the author directed the overall modeling workflow at every stage. Additional artificial intelligence tools were used such as ChatGPT to troubleshoot GitHub repository and merging issues.^[OpenAI. (2026). *ChatGPT* (GPT-4o) [Large language model]. Available at: <https://chat.openai.com/>.] Google Gemini was used to understand the autoplot of the parameters for the penalty blend of the first model attempt, which was then applied in the refinement of the second model attempt.^[Google. (2026). *Gemini* [Large language model]. Available at: <https://gemini.google.com>.]

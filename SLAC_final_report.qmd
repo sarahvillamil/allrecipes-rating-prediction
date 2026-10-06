@@ -1,0 +1,387 @@
+---
+title: "What Makes a Recipe Great? Predicting Average Ratings on AllRecipes.com"
+subtitle: |
+  | Final Project 
+  | Data Science 3 with R (STAT 301-3)
+author:
+  - name: Sarah Villamil
+  - name: Lillian Valk
+  - name: Avryl Carmona
+  - name: Cameron Lara
+date: today
+
+format:
+  html:
+    theme: cosmo
+    toc: true
+    toc-depth: 4
+    toc-location: left
+    embed-resources: true
+    code-fold: false
+    link-external-newwindow: true
+
+execute:
+  warning: false
+
+from: markdown+emoji
+reference-location: margin
+citation-location: margin 
+---
+
+::: {.callout-tip icon=false}
+
+## Github Repo Link
+
+[Github Repo Link](https://github.com/stat301-3-2026-spring/final-project-3-slac-3.git)
+
+:::
+
+```{r}
+#| echo: false
+library(here)
+library(tidyverse)
+library(tidymodels)
+
+load(here("plots/attempt2_results_table.rda"))
+load(here("plots/attempt2_results_plot.rda"))
+load(here("plots/attempt1_results_table.rda"))
+load(here("plots/attempt1_results_plot.rda"))
+load(here("plots/final_tbls_graphs.rda"))
+load(here("plots/attempt1_mars_rec2_autoplot.rda"))
+load(here("plots/attempt1_rf_rec2_autoplot.rda"))
+load(here("plots/attempt1_ensemble_rec3rec2_autoplot.rda"))
+load(here("plots/missingness.rda"))
+load(here("plots/misc_plots.rda"))
+load(here("plots/target_var_analysis.rda"))
+load(here("plots/attempt2_ensemble_rec2_autoplot.rda"))
+```
+
+## Introduction
+
+Recipes posted on [AllRecipes.com](https://www.allrecipes.com/) are rated by home cooks around the world, yet what drives a recipe to receive a high rating remains unclear. Is it the complexity of the dish, the type of ingredients used, or something else entirely? In this project, we aim to build a predictive model for the average user rating of a recipe using features extracted from the recipe itself — such as ingredients, cooking time, and publication date.
+
+Understanding what makes a recipe highly rated has practical value for recipe developers, food bloggers, and platforms looking to recommend highly-rated content. Our dataset consists of 14,426 recipes scraped from AllRecipes.com, with 16 variables including cooking time, number of ratings, ingredients, and the average rating which serves as our outcome variable. After removing observations with missing outcome values, the final dataset used for modeling contained 13,454 observations.
+
+## Data Overview
+
+### Target Variable
+
+The outcome variable, average rating, represents the average user rating for a recipe on a scale from 0 to 5. The distribution is heavily left-skewed, with most recipes receiving ratings between 4.0 and 5.0, as shown in @fig-target.
+
+```{r}
+#| label: fig-target
+#| echo: false
+#| fig-cap: "Distribution of average recipe ratings on AllRecipes.com."
+fig_target_distro
+```
+
+@tbl-target confirms this skew, with a mean rating of 4.53 and a median of 4.6, suggesting that AllRecipes users tend to rate recipes quite favorably overall.
+
+```{r}
+#| label: tbl-target
+#| echo: false
+#| tbl-cap: "Summary statistics for average recipe ratings."
+tbl_target_distro
+```
+
+### Missingness
+
+Missingness was primarily concentrated in the numeric variables, with total reviews, average rating, and total ratings having the highest rates of missing data, as shown in @fig-missingness.
+
+```{r}
+#| label: fig-missingness
+#| echo: false
+#| fig-cap: "Missingness by variable in the raw AllRecipes dataset."
+missingness_overall
+```
+
+@tbl-missingness provides the exact missingness counts and percentages for each affected variable.
+
+```{r}
+#| label: tbl-missingness
+#| echo: false
+#| tbl-cap: "Variables with missing data."
+missingness_top
+```
+
+Observations with missing values in average rating were removed prior to modeling, as the outcome variable cannot be imputed. After removal, the final dataset contained 13,454 observations.
+
+## Methods
+
+### Data Splitting and Resampling
+
+The cleaned dataset was split into training (80%) and testing (20%) sets, stratified on the average rating to preserve the outcome distribution. Cross-validation was performed using 5-fold CV with 3 repeats on the training set, also stratified on average rating, resulting in 15 resamples.
+
+### Feature Engineering
+
+Several new predictor variables were engineered from the raw ingredients variable text column using regex keyword detection. These include variables measuring the number of ingredients (count of ingredients as a proxy for recipe complexity), whether the recipe is vegetarian, whether the recipe is vegan, whether the food is sweet, whether the food is spicy, whether the recipe has alcohol, whether the recipe has an expensive ingredient, and whether the recipe is quick to make. A variable measuring the days since a recipe was published was also created from the variable that gave the date a recipe was published.
+
+Three preprocessing recipes were created to accommodate different model families:
+
+- **Recipe 1 (Null):** Minimal preprocessing, used as a baseline.
+- **Recipe 2 (Tree-based):** For tree-based models, this recipe took care of unseen factor variable levels, rare factor variable levels, and dummied factor variables with one-hot encoding. It also removed variables with near zero variance and imputed missing variables using a median imputation method.
+- **Recipe 3 (Distance-based):** This recipe used the same steps as Recipe 2, except it also normalized all numeric variables for models sensitive to predictor scale and dummied factor variables without one-hot encoding.
+
+To introduce some feature engineering, two additional complex recipes were created:
+
+- **Recipe 4 (Complex Tree):** This recipe extends Recipe 2 with polynomial expansion on the number of ingredients variable and the total time variable, as well as a lower threshold for rare factor levels.
+- **Recipe 5 (Complex Distance):** This recipe extends Recipe 4 with the same additions plus interaction terms between whether a recipe is sweet and whether a recipe is spicy, as well as whether a recipe is vegetarian or has an expensive ingredient.
+
+Variables excluded from all recipes include the url variable, raw ingredients text variable, the name of the recipe, and the name of the author due to high cardinality or being raw text. The total number of ratings and total reviews were excluded as leakage variables.
+
+### Model Types
+
+For the initial modeling stage, we fit the following model types, tuning the following hyperparameters (if applicable):
+
+- Null: baseline model
+- Linear Regression: parametric model based on linear relationship
+- Elastic Net: parametric model based on linear relationship with penalties
+  - penalty
+  - mixture
+- K-Nearest Neighbors: nonparametric model based on data proximity
+  - neighbors
+- MARS: nonparametric model based on segments of linear functions
+  - number of terms
+  - degree
+- Single Layer Neural Network: nonparametric model using layered nodes for prediction
+  - hidden units
+  - penalty
+  - epochs
+- Random Forest: nonparametric model using decision trees for prediction
+  - minimum number of data points
+  - minimum number of sampled variables
+  - number of trees
+- Boosted Tree: nonparametric model using decision trees and learning for prediction
+  - minimum number of data points
+  - minimum number of sampled variables
+  - number of trees
+  - learn rate
+- SVM Polynomial: nonparametric model using curved hyperplanes to predict
+  - cost
+  - degree
+  - scale factor
+- SVM Radial: nonparametric model using radial curves to predict
+  - cost
+  - RBF sigma
+- Ensemble Model (K-Nearest Neighbors & Boosted Tree): combination model using parts of each included model
+  - blending penalty
+
+### Assessment Metric
+
+RMSE was chosen as the assessment metric as this is a regression problem. RMSE is interpretable in the units of the outcome variable (average rating) and penalizes large errors more heavily than MAE.
+
+## Model Building & Selection
+
+### Initial Model Results
+
+The initial model results are shown in @tbl-initial-results below. The best-performing models were the ensemble KNN and Boosted Tree models (RMSE = 0.391), the Random Forest models (simple RMSE = 0.393, complex RMSE = 0.394), the Boosted Tree models (simple RMSE = 0.393, complex RMSE = 0.394), and the MARS models (RMSE = 0.394). Of these models, the fastest was the complex ensemble KNN and Boosted Tree model with a runtime of 13.9 seconds, and the slowest was the simple Boosted Tree model with a runtime of 1743.8 seconds, or about 29 minutes.^[Initial model runtimes were estimated by fitting a singular model and multiplying its runtime by the number of resamples and hyperparameter combinations tried. For all models except the ensemble models, the total runtime in the table below is an estimation using this calculation.] The simple recipe models tended to perform about the same as the complex recipe models, suggesting that complex pre-processing did not make a difference in model performance. The top 4 models as mentioned above were selected to advance to the model refinement stage.
+```{r}
+#| label: tbl-initial-results
+#| echo: false
+#| tbl-cap: "Initial model results ranked by RMSE with computation time."
+
+attempt1_results_table
+```
+
+@fig-initial-results visualizes the initial model results, reiterating the above findings.
+```{r}
+#| label: fig-initial-results
+#| echo: false
+#| fig-cap: "Initial model results ranked by RMSE across 15 resamples."
+
+attempt1_results_plot
+```
+
+## Model Refinement
+
+Based on the initial model results, Random Forest, Boosted Tree, and MARS were selected for refinement as the top three individual models from attempt 1, all achieving RMSEs below 0.394. Additionally, a new ensemble combining MARS and Boosted Tree was explored in attempt 2, motivated by the strong individual performance of both models and the success of the ensemble approach in attempt 1. The combination of MARS and Boosted Tree is particularly well-motivated as they use fundamentally different approaches — MARS captures non-linear relationships through piecewise regression while Boosted Tree builds sequential trees — making their combination likely to be complementary.
+
+The refinement strategy for each model was directly informed by the best hyperparameters and grid boundaries from attempt 1:
+
+**Random Forest:** The attempt 1 grid ranged the number of randomly sampled predictors from 1–6, the number of trees from 250–750, and the minimum node size from 2–20. The best parameters were 3 sampled predictors, 600 trees, and a minimum node size of 20. Since the minimum node size hit the ceiling of the grid, the attempt 2 grid extended the range to 15–30 and narrowed the other parameters to focus the search. The best parameters in attempt 2 remained identical, with the minimum node size again approaching the ceiling, suggesting larger minimum node sizes do not continue to improve performance for this dataset.
+
+**Boosted Tree:** The attempt 1 grid ranged the number of randomly sampled predictors from 1–6, the number of trees from 250–750, the minimum node size from 2–20, and the learning rate from 0.00001 to 0.63. The best parameters were 2 sampled predictors, 400 trees, a minimum node size of 20, and a learning rate of 0.01. In attempt 2, tree depth was added as a new tuning parameter with a range of 1–8, the learning rate range was narrowed around the best value, and the minimum node size range was adjusted to 10–20. The best parameters again converged to the same values from attempt 1.
+
+**MARS:** The attempt 1 grid ranged the number of model terms from 1–20 and the product degree from 1–2. The best parameters were 20 terms and a product degree of 1, with the number of terms hitting the ceiling. In attempt 2, the number of terms range was extended to 15–40 with finer resolution to more thoroughly explore this parameter. The best number of terms shifted to 26, confirming that the original ceiling was limiting performance.
+
+**Ensemble (MARS & BT):** In attempt 1, the ensemble combined KNN and Boosted Tree using a broad blending penalty range. As shown in @fig-ensemble-autoplot-a1 in the Appendix, the selected penalty was well-placed before performance begins degrading sharply at higher penalties. In attempt 2, the ensemble candidates were changed to MARS and Boosted Tree, and the penalty range was refined to focus on finer resolution in the low penalty region, removing the high penalty values that were clearly suboptimal in attempt 1. As shown in @fig-ensemble-autoplot-a2, the attempt 2 ensemble shows very similar penalty behavior with a slightly improved RMSE of 0.390 compared to 0.391 in attempt 1.
+
+All refined models used the tree-based recipe, as the simple recipes performed at least as well as the complex recipes in attempt 1.
+
+### Refined Model Results
+
+The refined model results are shown in @tbl-refined-results below. The best-performing model was the simple ensemble KNN and Boosted Tree model (RMSE = 0.390). The ensemble model was also the fastest, having a runtime of 34.3 seconds. Additionally, it had the lowest standard error of 0.0022. The ensemble model was also the only model to perform better than its pre-refinement version, though its performance only increased by 0.001 RMSE. The refined individual models converged to similar or identical hyperparameters as attempt 1, suggesting the initial grids were already well-specified. The main improvement came from the new ensemble combination rather than from further hyperparameter tuning.
+```{r}
+#| label: tbl-refined-results
+#| echo: false
+#| tbl-cap: "Refined model results ranked by RMSE with computation time."
+
+attempt2_results_table
+```
+
+@fig-refined-results visualizes the refined model results, reiterating the above findings.
+```{r}
+#| label: fig-refined-results
+#| echo: false
+#| fig-cap: "Refined model results ranked by RMSE across 15 resamples."
+
+attempt2_results_plot
+```
+
+The tuning analysis for the top individual models from attempt 1 is provided in @fig-rf-autoplot and @fig-mars-autoplot in the Appendix. The ensemble penalty tuning plots for both attempts are shown in @fig-ensemble-autoplot-a1 and @fig-ensemble-autoplot-a2.
+
+### Final Model Selection
+
+After our second attempt, we chose the Ensemble MARS & BT model as our final model. It achieved the best RMSE of 0.390, the lowest standard error of 0.00217, and the fastest runtime of 34.3 seconds among all attempt 2 models. The combination of MARS and Boosted Tree proved more effective than the attempt 1 KNN & BT ensemble, suggesting that pairing two strong non-linear models produces better stacking candidates than combining a distance-based model with a tree-based model.
+
+## Final Model Analysis
+
+After selecting and fitting the ensemble model to the test set, we got an final rmse of 0.395. The RMSE did get 0.005 higher than the RMSE measured on the training set. This means that the ensemble model was slightly overfitted to the training set. The Boosted Tree Models and the MARS models selected as they both performed well with the dataset in the first attempt while using different methods to predict. However, both of these models are similar in their flexibility and therefore are prone to overfitting. 
+
+### Performance on Test Set
+
+As shown @tbl-final-rmse, the final model had an RMSE Of 0.395 when predicted on the test set. When applied in the context of our dataset, this means that our model on average would predict 0.395 off from the actual average recipe rating. Given that the recipe was from a range of one to five, this RMSE value, is decent for the first two attempts. Obviously there is room for improvement, but our model would get ratings withino the 0.5 range of the actual rating. At times the difference between a average recipe rating being 0.5 may be more impact on the extreme ends. For example, if our model predicted an average recipe rating of 2.0 and in reality it was 1.5 or if our  model predicted an average recipe rating of 5.0 and in reality it was 4.5. While this difference might dissuade people from trying out certain recipes in the future based on a 0.5 difference our model was able to detect a good rating versus a bad rating. Given that the RMSE is even less than the 0.5 difference, our model did a good job of getting in the correct range of the rating but might be off a few decimal points. 
+```{r}
+#| label: tbl-final-rmse
+#| echo: false
+#| tbl-cap: "Final RMSE"
+
+final_rmse
+``` 
+
+### Predictions vs. True Values
+
+To further compare the ability of our model to predict the true values of the test set, @fig-final-graph shows the relationship between the predicted average recipe ratings compared to the actual average recipe ratings. As seen in @fig-final-graph, our refinement efforts to improve the model did not work as well as hoped. Given that our outcome variable is exploring the average recipe rating, this graph tended to predict certain values better than others. There are more higher range ratings than lower range ratings in the data set. Due to this, we can see a clear trend of our model being able to predict the average rating if it fell within the 4.0 to 4.5 range. However, the lower or higher the actual average recipe rating got, the worse our model was at predicting the rating.  
+```{r}
+#| label: fig-final-graph
+#| echo: false
+#| fig-cap: "Predicted vs. Actual Average Recipe Ratings"
+
+final_graph
+``` 
+
+## Conclusion
+
+After two attempts to predict the average rating, our models, unfortunately, did not improve much. We still fell within an RMSE of approximately 0.39. With model refinement, the simpler recipes performed better, so the increased feature engineering we chose was not super necessary for building a solid model. However, this does not mean that other feature engineering could have been more helpful. 
+
+Looking at the results of @fig-final-graph, our predictions seemed to suffer from the skew in the target variable. Future explorations could try a two-step model approach with an outlier model and a model for all other observations, but this would also require exploring potential identifier variables to set aside test set observations without data leakage.
+
+Another potential exploration could be changing the prediction question. Rather than a regression problem, this could be posed as a classification problem and we could create different bins for different ratings, likely focusing on 4 star and 5 star ratings. However, this could be difficult with decimal places and it seems less useful to predict whether a recipe has 4 stars or 5 stars.
+
+All in all, more work could be done to refine these models. Predicting the average recipe of an [AllRecipes.com](https://www.allrecipes.com/) recipe with a better RMSE than ~0.39 remains elusive, but with future steps, it could still be possible.
+
+## Comment on Generative AI Use
+
+Claude (Anthropic) was used to assist with code writing, debugging, and report structuring throughout this project.^[Anthropic. (2026). *Claude* (claude-sonnet-4-6) [Large language model]. Available at: <https://claude.ai>.] All analytical decisions — including model selection, feature engineering strategy, and interpretation of results — were made by the author. Claude served as a coding assistant; the author directed the overall modeling workflow at every stage. Additional artificial intelligence tools were used such as ChatGPT to troubleshoot GitHub repository and merging issues.^[OpenAI. (2026). *ChatGPT* (GPT-4o) [Large language model]. Available at: <https://chat.openai.com/>.] Google Gemini was used to understand the autoplot of the parameters for the penalty blend of the first model attempt, which was then applied in the refinement of the second model attempt.^[Google. (2026). *Gemini* [Large language model]. Available at: <https://gemini.google.com>.]
+
+## References
+
+AllRecipes. (2024). *AllRecipes.com*. [https://www.allrecipes.com/](https://www.allrecipes.com/)
+
+
+## Appendix: EDA {.appendix}
+
+The following figures explore the relationship between the engineered ingredient-based features and average recipe ratings. These plots were used to motivate the feature engineering decisions described in the Methods section.
+
+@fig-sweet-app shows the distribution of average ratings for sweet versus non-sweet recipes.
+
+```{r}
+#| label: fig-sweet-app
+#| echo: false
+#| fig-cap: "Average rating by sweetness status."
+sweet_rating_plot
+```
+
+@fig-spicy-app shows the distribution of average ratings for spicy versus non-spicy recipes.
+
+```{r}
+#| label: fig-spicy-app
+#| echo: false
+#| fig-cap: "Average rating by spiciness status."
+spicy_rating_plot
+```
+
+@fig-vegan-app shows the distribution of average ratings for vegan versus non-vegan recipes.
+
+```{r}
+#| label: fig-vegan-app
+#| echo: false
+#| fig-cap: "Average rating by vegan status."
+vegan_rating_plot
+```
+
+@fig-alcohol-app shows the distribution of average ratings for recipes with and without alcohol.
+
+```{r}
+#| label: fig-alcohol-app
+#| echo: false
+#| fig-cap: "Average rating by alcohol presence."
+alcohol_rating_plot
+```
+
+@fig-vegetarian-app shows the distribution of average ratings for vegetarian versus non-vegetarian recipes.
+
+```{r}
+#| label: fig-vegetarian-app
+#| echo: false
+#| fig-cap: "Average rating by vegetarian status."
+vegetarian_rating_plot
+```
+
+@fig-luxury-app shows the distribution of average ratings for recipes with luxury ingredients versus standard ingredients.
+
+```{r}
+#| label: fig-luxury-app
+#| echo: false
+#| fig-cap: "Average rating by luxury ingredient status."
+luxury_rating_plot
+```
+
+@fig-ningredients-app shows the distribution of the number of ingredients across all recipes.
+
+```{r}
+#| label: fig-ningredients-app
+#| echo: false
+#| fig-cap: "Distribution of number of ingredients."
+n_ingredients_plot
+```
+
+## Appendix: Tuning Analysis {.appendix}
+
+The following figures show the tuning analysis for the top performing models. For the ensemble models, the plots show how the blending penalty affects RMSE and the number of ensemble members selected.
+
+@fig-ensemble-autoplot-a1 shows the penalty tuning for the attempt 1 ensemble combining KNN and Boosted Tree.
+
+```{r}
+#| label: fig-ensemble-autoplot-a1
+#| echo: false
+#| fig-cap: "Penalty tuning autoplot for Ensemble KNN & BT (Attempt 1). The selected penalty of ~1e-03 is well-placed before RMSE begins spiking at higher penalties."
+attempt1_ensemble_rec3rec2_autoplot
+```
+
+@fig-ensemble-autoplot-a2 shows the penalty tuning for the attempt 2 ensemble combining MARS and Boosted Tree.
+
+```{r}
+#| label: fig-ensemble-autoplot-a2
+#| echo: false
+#| fig-cap: "Penalty tuning autoplot for Ensemble MARS & BT (Attempt 2). The selected penalty remains around 1e-03 with a slightly improved RMSE of 0.390."
+attempt2_ensemble_autoplot
+```
+
+@fig-rf-autoplot shows the hyperparameter tuning for the Random Forest model from attempt 1, displaying how RMSE varies across different combinations of the number of trees, number of randomly sampled predictors, and minimum node size.
+
+```{r}
+#| label: fig-rf-autoplot
+#| echo: false
+#| fig-cap: "Hyperparameter tuning autoplot for Random Forest (Attempt 1)."
+attempt1_rf_rec2_autoplot
+```
+
+@fig-mars-autoplot shows the hyperparameter tuning for the MARS model from attempt 1, displaying how RMSE varies across different numbers of terms and product degrees.
+
+```{r}
+#| label: fig-mars-autoplot
+#| echo: false
+#| fig-cap: "Hyperparameter tuning autoplot for MARS (Attempt 1)."
+attempt1_mars_rec2_autoplot
+```
