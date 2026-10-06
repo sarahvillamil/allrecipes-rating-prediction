@@ -6,7 +6,6 @@ Regression and ensemble modeling to predict recipe ratings from 13K+ AllRecipes 
 In this project, we explored what factors contribute to highly rated recipes on AllRecipes.com and developed machine learning models to predict a recipe's average user rating.
 Using recipe metadata, nutritional information, and ingredient data, we investigated relationships between recipe characteristics and user ratings while evaluating a variety of predictive modeling approaches.
 After cleaning the dataset and removing observations with missing outcome values, our final modeling dataset contained 13,454 recipes.
- 
 ## Dataset
 - Source: AllRecipes.com
 - Original Dataset: 14,426 recipes
@@ -28,7 +27,6 @@ We created several new features from the raw dataset, including:
 - Days since publication 
 Many of these variables were derived from ingredient text using regex-based feature extraction.
 ---
- 
 ## Modeling Approach
 We evaluated a variety of regression models, including:
 - Linear Regression
@@ -47,14 +45,12 @@ Model training utilized:
 - 5-Fold Cross Validation
 - 3 Repeats
 - Hyperparameter Tuning
----
- 
+--- 
 ## Best Model
 ### Ensemble MARS + Boosted Tree
 Our best-performing model was an ensemble combining:
 - Multivariate Adaptive Regression Splines (MARS)
 - Boosted Trees
- 
 ### Performance
 | Metric | Value |
 |----------|----------|
@@ -67,7 +63,6 @@ Our best-performing model was an ensemble combining:
 - More complex preprocessing techniques produced minimal improvements over simpler approaches.
 - The heavily skewed distribution of recipe ratings made accurate prediction of extremely high and low ratings difficult.
 ---
- 
 ## Technologies Used
 - R
 - Tidymodels
@@ -79,7 +74,6 @@ Our best-performing model was an ensemble combining:
 - Cross Validation
 - Ensemble Modeling
 ---
- 
 ## Contributors
 - Sarah Villamil
 - Lillian Valk
