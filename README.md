@@ -1,6 +1,3 @@
-### allrecipes-rating-prediction
-Regression and ensemble modeling to predict recipe ratings from 13K+ AllRecipes recipes.
-
 ## Repo Organization 
 ### Sub-directories 
 - [data/](data): contains all data and data splitting for this project.
