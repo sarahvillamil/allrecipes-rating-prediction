@@ -1,6 +1,21 @@
 ### allrecipes-rating-prediction
 Regression and ensemble modeling to predict recipe ratings from 13K+ AllRecipes recipes.
 
+## Repo Organization 
+### Sub-directories 
+- [data/](data): contains all data and data splitting for this project.
+- [plots/](plots): contains plots used in project reports.
+- [r_scripts/](r_scripts): contains all R scripts for this project.
+- [recipes/](recipes): contains all model recipes for this project.
+- [results/](results): contains all fitted/tuned model results for this project.
+
+### Reports
+-   'SLAC_executive_summary.qmd': file for creating executive summary
+-   'SLAC_executive_summary.html': rendered html for executive summary
+-   'SLAC_final_report.qmd': file for creating final report
+-   'SLAC_final_report.html': rendered html for final report
+
+
 # What Makes a Recipe Great? Predicting AllRecipes Ratings
 ## Overview
 In this project, we explored what factors contribute to highly rated recipes on AllRecipes.com and developed machine learning models to predict a recipe's average user rating.
